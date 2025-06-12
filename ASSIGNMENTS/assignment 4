@@ -1,0 +1,97 @@
+// App.js
+import React, { createContext, useEffect, useState } from 'react';
+import { View, Text, Button, StyleSheet } from 'react-native';
+import { Accelerometer } from 'expo-sensors';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+// --- Context Setup ---
+export const ApiContext = createContext();
+
+const ApiProvider = ({ children }) => {
+  const [data, setData] = useState({ get: '', post: '', put: '' });
+
+  const fetchData = async () => {
+    // GET
+    const getRes = await fetch('https://jsonplaceholder.typicode.com/posts/1');
+    const getJson = await getRes.json();
+
+    // POST
+    const postRes = await fetch('https://jsonplaceholder.typicode.com/posts', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'foo', body: 'bar', userId: 1 }),
+      headers: { 'Content-type': 'application/json; charset=UTF-8' },
+    });
+    const postJson = await postRes.json();
+
+    // PUT
+    const putRes = await fetch('https://jsonplaceholder.typicode.com/posts/1', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 1, title: 'updated', body: 'updated', userId: 1 }),
+      headers: { 'Content-type': 'application/json; charset=UTF-8' },
+    });
+    const putJson = await putRes.json();
+
+    setData({ get: JSON.stringify(getJson), post: JSON.stringify(postJson), put: JSON.stringify(putJson) });
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  return <ApiContext.Provider value={data}>{children}</ApiContext.Provider>;
+};
+
+// --- Screens ---
+const HomeScreen = ({ navigation }) => {
+  const apiData = React.useContext(ApiContext);
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>API Results:</Text>
+      <Text>GET: {apiData.get}</Text>
+      <Text>POST: {apiData.post}</Text>
+      <Text>PUT: {apiData.put}</Text>
+      <Button title="Go to Sensor" onPress={() => navigation.navigate('Sensor')} />
+    </View>
+  );
+};
+
+const SensorScreen = () => {
+  const [data, setData] = useState({ x: 0, y: 0, z: 0 });
+
+  useEffect(() => {
+    Accelerometer.setUpdateInterval(500);
+    const sub = Accelerometer.addListener(setData);
+    return () => sub.remove();
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Accelerometer Data</Text>
+      <Text>X: {data.x.toFixed(2)}</Text>
+      <Text>Y: {data.y.toFixed(2)}</Text>
+      <Text>Z: {data.z.toFixed(2)}</Text>
+    </View>
+  );
+};
+
+// --- Navigation ---
+const Stack = createNativeStackNavigator();
+
+export default function App() {
+  return (
+    <ApiProvider>
+      <NavigationContainer>
+        <Stack.Navigator initialRouteName="Home">
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="Sensor" component={SensorScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </ApiProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', padding: 20 },
+  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
+});
